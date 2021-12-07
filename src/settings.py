@@ -29,7 +29,7 @@ import os
 
 PYTHON_PATH="/usr/bin/python"
 TOOL_PATH, _ = os.path.split(os.path.abspath(__file__))
-DEBUG = False # to print additional messages
-VERBOSE = False
+DEBUG = True # to print additional messages
+VERBOSE = True
 PLL_CLOCK = 500.0
 COUNTER_BITS = 4

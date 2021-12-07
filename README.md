@@ -27,6 +27,7 @@ Usage:
     syncopation make [--no_synth_directives] [--add_synth_directives] [--no_sync_hardware] [--pipeline]
     syncopation modelsim [--log=<LOG_FILE>]
     syncopation synth [--log=<LOG_FILE>] [--enhanced_synthesis] [--no_synthesis] [--no_sta]
+    syncopation timing
     syncopation -h|--help
 
 Options:

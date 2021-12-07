@@ -52,6 +52,7 @@ def get_hls_data(verilog_file):
     instructions_per_state = {}
     sources_per_state = {}
     drains_per_state = {}
+    function_calls_per_state = {}
 
     starts_per_instruction = {}
     finishes_per_instruction = {}
@@ -138,15 +139,27 @@ def get_hls_data(verilog_file):
             regs = [r.split('%')[1] for r in re.findall(regex, currentLine)]
             return regs[0]
         else: return None
+    
+    def extract_function_call(currentState, instruction):
+        if "function_call" in currentState and instruction:
+            if "@" in instruction and "(" in instruction and "call" in instruction:
+                func = instruction.split("(")[0].split("@")[-1].strip()
+                return func
+            else: print("ERROR: Not a function call", instruction)
+        return None
 
     for idx,currentLine in enumerate(lines):
         module = extract_module(currentLine)
         state = extract_state(currentModule, currentLine)
         finish_state = extract_finish_state(currentModule, currentLine)
         instruction = extract_instruction(currentLine)
+        function_call = extract_function_call(currentState, instruction)
         next_states = extract_next_states(currentModule, currentLine)
         alloca = extract_alloca(currentLine)
         basic_block = extract_basic_block(currentLine)
+
+        if bool(function_call):
+            function_calls_per_state[currentState] = [function_call]
 
         if bool(basic_block):
             basic_blocks_per_module[currentModule].append(basic_block)
@@ -256,6 +269,8 @@ def get_hls_data(verilog_file):
     save(os.path.join(out_dir,"hls_drainsPerState.json"), drains_per_state)
     for k,v in instructions_per_state.items(): instructions_per_state[k] = list(dict.fromkeys(v))
     save(os.path.join(out_dir,"hls_instructionsPerState.json"), instructions_per_state)
+    for k,v in function_calls_per_state.items(): function_calls_per_state[k] = list(dict.fromkeys(v))
+    save(os.path.join(out_dir,"hls_functionCallsPerState.json"), function_calls_per_state)
     
     for k,v in instructions_per_module.items(): instructions_per_module[k] = list(dict.fromkeys(v))
     save(os.path.join(out_dir,"hls_instructionsPerModule.json"), instructions_per_module)

@@ -27,6 +27,7 @@ Usage:
     syncopation make [--no_synth_directives] [--add_synth_directives] [--no_sync_hardware] [--pipeline]
     syncopation modelsim [--log=<LOG_FILE>]
     syncopation synth [--log=<LOG_FILE>] [--enhanced_synthesis] [--no_synthesis] [--no_sta]
+    syncopation timing
     syncopation -h|--help
 
 Options:
@@ -45,7 +46,7 @@ import subprocess, os, shutil
 from .misc import execute, clean_file, save, read_file
 import getopt
 from docopt import docopt
-from .project import generate_top_module, insert_syncoption_hardware, profile_rtl, add_synthesis_directives
+from .project import generate_top_module, insert_syncoption_hardware, profile_rtl, add_synthesis_directives, get_module_data
 from .synthesis import perform_sta, get_dynamic_timing, generate_clock_settings, generate_mif_files, get_simulation_performance, get_timing_constraints
 from .settings import *
 
@@ -127,6 +128,8 @@ def make_project(c_file, no_synth_directives, add_synth_directives, no_sync_hard
             out_f.write("derive_pll_clocks\n")
             out_f.write("derive_clock_uncertainty\n")
         shutil.copy(os.path.join(TOOL_PATH, "verilog", "de1_top.v"), os.path.join(project_folder, "connect_top.v"))
+        profile_rtl(verilog_file)
+        get_module_data(pipeline, verilog_file)
     else: 
         with open(sdc_file_project, 'w') as out_f:
             print("INFO: Saving project sdc file "+sdc_file_project)
@@ -231,6 +234,9 @@ def make_synthesis(c_file, enhanced_synthesis, no_synth, no_sta, log_file=None):
         print("FMAX: "+ freq)
         print("INFO: Saving result to "+os.path.join(output_directory,'no_sync_fmax.csv'))
         save(os.path.join(output_directory,'no_sync_fmax.csv'), [freq])
+        profile_rtl(verilog_file)
+        get_module_data(pipeline, verilog_file)
+        get_timing_constraints(verilog_file, True)
     else: # with syncopation hardware
         clean_file(sdc_file)
         result = execute(['quartus_sta', '-t', os.path.join(TOOL_PATH, 'tcl','report_longest.tcl')], cd=project_folder, quiet=True)
@@ -258,8 +264,8 @@ def make_synthesis(c_file, enhanced_synthesis, no_synth, no_sta, log_file=None):
         generate_mif_files(verilog_file, pipeline) # populate divisor memories
         if not no_sta:
             print("INFO: Updating project memory contents...")
-            execute(["quartus_cdb", "--update_mif", "top"], cd=project_folder, wait=True)
-            execute(["quartus_asm", "top"], cd=project_folder, wait=True)
+            # execute(["quartus_cdb", "--update_mif", "top"], cd=project_folder, wait=True)
+            # execute(["quartus_asm", "top"], cd=project_folder, wait=True)
 
         if no_synth_directives:
             print("INFO: Synthesis directives not present. Configuration may result in data corruption")
@@ -284,6 +290,55 @@ def make_synthesis(c_file, enhanced_synthesis, no_synth, no_sta, log_file=None):
             get_dynamic_timing(verilog_file, enhanced_synthesis)
 
     clean_file(sdc_file_debug)
+
+#############################################
+############# Generate timing files #########
+#############################################
+def make_timing(c_file, clean_timing):
+    """ Make SDC File """
+    print("Generating SDC File")
+    # create project name based on input file
+    project_name = c_file.split(".")[0]
+    verilog_file = project_name+'.v'
+    project_folder = os.path.dirname(os.path.abspath(c_file))
+    output_directory = project_name+"_files"
+
+    settings = read_file(os.path.join(output_directory, "settings.json"))
+    pipeline = settings['pipeline']
+    no_synth_directives = settings['no_synth_directives']
+    no_sync_hardware = settings['no_sync_hardware']
+
+    sdc_file = os.path.join(project_folder, 'sdc', "path_delays.sdc")
+    sdc_file_debug = os.path.join(project_folder, 'sdc', "path_delays_debug.sdc")
+    sdc_file_fmax = os.path.join(project_folder, 'sdc', "fmax_delay.sdc")
+    clean_file(sdc_file_debug)
+    clean_file(sdc_file)
+    clean_file(sdc_file_fmax)
+
+    result = execute(['quartus_sta', '-t', os.path.join(TOOL_PATH, 'tcl','report_longest.tcl')], cd=project_folder, quiet=True)
+    result = result.split('\n')
+    slack = [l for l in result if "Slack: "  in l]
+    slack = float(slack[0].split()[-1])
+    max_frequency = 1000.0/(2-slack)
+    print("FMAX "+str(max_frequency))
+    print("Note: Syncopation performance is not determined by FMAX.")
+    print("      Effective frequency is more indicative of circuit performance.")
+    
+    print("INFO: Executing tcl script for fine-grained static timing analysis...")
+    perform_sta(verilog_file)
+    print("INFO: Determining dynamic clock settings...")
+    
+    get_dynamic_timing(verilog_file, False) # enhanced_synthesis is False to generate correct sdc constraints
+    get_timing_constraints(verilog_file)
+    generate_clock_settings(verilog_file, pipeline)
+    generate_mif_files(verilog_file, pipeline)
+
+    print("INFO: Updating project memory contents...")
+    execute(["quartus_cdb", "--update_mif", "top"], cd=project_folder, wait=True)
+    execute(["quartus_asm", "top"], cd=project_folder, wait=True)
+
+    print("INFO: generated file "+sdc_file_debug)
+    print("INFO: generated file "+sdc_file_fmax)
 
 ####################################
 ########### Main Routine ###########
@@ -318,3 +373,5 @@ def main():
         run_modelsim(src, log_file=options["--log"])
     if options["synth"]:
         make_synthesis(src, options["--enhanced_synthesis"], options["--no_synthesis"], options["--no_sta"], options["--log"])
+    if options["timing"]:
+        make_timing(src)

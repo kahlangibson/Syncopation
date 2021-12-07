@@ -60,31 +60,31 @@ def perform_sta(verilog_file):
                 for drain in drains:
                     lines += request_template_dual.substitute({"priority":"Priority1", "to":drain+"*", "from":source+"*", "state":state})
 
-                lines += request_template_dual.substitute({"priority":"Priority1", "to":path+"cur_state*", "from":source+"*", "state":state})
-                lines += request_template_dual.substitute({"priority":"Priority1", "to":"*|top_inst|div_top_reg*", "from":source+"*", "state":state})
-                lines += request_template_dual.substitute({"priority":"Priority1", "to":path+module+"_rom*", "from":source+"*", "state":state})
+                # lines += request_template_dual.substitute({"priority":"Priority1", "to":path+"cur_state*", "from":source+"*", "state":state})
+                # lines += request_template_dual.substitute({"priority":"Priority1", "to":"*|top_inst|div_top_reg*", "from":source+"*", "state":state})
+                # lines += request_template_dual.substitute({"priority":"Priority1", "to":path+module+"_rom*", "from":source+"*", "state":state})
                 lines += request_template.substitute({"priority":"Priority2", "reg":source+"*", "dir":"from", "state":state})
-                lines += request_template_dual.substitute({"priority":"Priority2", "to":path+"cur_state*", "from":source+"*", "state":state})
+                # lines += request_template_dual.substitute({"priority":"Priority2", "to":path+"cur_state*", "from":source+"*", "state":state})
 
             for drain in drains:
-                lines += request_template_dual.substitute({"priority":"Priority1", "from":path+"cur_state*", "to":drain+"*", "state":state})
+                # lines += request_template_dual.substitute({"priority":"Priority1", "from":path+"cur_state*", "to":drain+"*", "state":state})
                 if "finish" in drain or "return_val" in drain:
                     lines += request_template.substitute({"priority":"Priority1", "reg":drain+"*", "dir":"from", "state":state})
                 
-                lines += request_template_dual.substitute({"priority":"Priority2", "from":path+"cur_state*", "to":drain+"*", "state":state})
+                # lines += request_template_dual.substitute({"priority":"Priority2", "from":path+"cur_state*", "to":drain+"*", "state":state})
                 lines += request_template.substitute({"priority":"Priority2", "reg":drain+"*", "dir":"to", "state":state})
             
             if 'LEGUP_0' in state:
                 lines += request_template.substitute({"priority":"Priority1", "reg":path+"start*", "dir":"to", "state":state})
                 lines += request_template.substitute({"priority":"Priority1", "reg":"*"+module+"_arg*", "dir":"from", "state":state})
 
-            if len(drains) == 0 and len(sources) == 0:
-                lines += request_template_dual.substitute({"priority":"Priority2", "to":path+"cur_state*", "from":path+"cur_state*", "state":state})
+            # if len(drains) == 0 and len(sources) == 0:
+                # lines += request_template_dual.substitute({"priority":"Priority2", "to":path+"cur_state*", "from":path+"cur_state*", "state":state})
 
 
-            lines += request_template_dual.substitute({"priority":"Priority3", "to":path+module+"_rom*", "from":path+"cur_state*", "state":state})
-            lines += request_template_dual.substitute({"priority":"Priority3", "to":path+"cur_state*", "from":path+"cur_state*", "state":state})
-            lines += request_template_dual.substitute({"priority":"Priority3", "to":"*|top_inst|div_top_reg*", "from":path+"cur_state*", "state":state})
+            # lines += request_template_dual.substitute({"priority":"Priority3", "to":path+module+"_rom*", "from":path+"cur_state*", "state":state})
+            # lines += request_template_dual.substitute({"priority":"Priority3", "to":path+"cur_state*", "from":path+"cur_state*", "state":state})
+            # lines += request_template_dual.substitute({"priority":"Priority3", "to":"*|top_inst|div_top_reg*", "from":path+"cur_state*", "state":state})
 
     save(tcl_file, lines)
 
@@ -311,7 +311,7 @@ def get_dynamic_timing(verilog_file, enhanced_synthesis):
                 for source in memory_sources_per_state[state]:
                     if "main_LEGUP_0" in state:
                         lines += sdc_template.substitute({"reg":source+"*",  "dir":"from", "freq":chosen_period})
-                    lines += sdc_template_dual.substitute({"from":source+"*", "to":path+"cur_state*", "freq":chosen_period})
+                    lines += sdc_template_dual.substitute({"from":source+"*", "to":path+"*", "freq":chosen_period})
                     for drain in drains_per_state[state]:
                         lines += sdc_template_dual.substitute({"from":source+"*", "to":path+drain+"*", "freq":chosen_period})
                 
@@ -355,9 +355,9 @@ def get_dynamic_timing(verilog_file, enhanced_synthesis):
                         lines += sdc_template_dual.substitute({"from":path+source+"*", "to":"*|top_inst|div_top_reg*", "freq":chosen_period})
                         lines += sdc_template_dual.substitute({"from":path+source+"*", "to":path+module+"_rom:"+module+"_rom_INST|*", "freq":chosen_period})
                         
-                if len(drains_per_state[state]) == 0 and len(sources_per_state[state]) == 0 and len(memory_sources_per_state[state]) == 0 and len(memory_drains_per_state[state]) == 0:
-                    lines += sdc_template.substitute({"reg":path+module+"_rom*", "dir":"to",  "freq":chosen_period})
-                    lines += sdc_template.substitute({"reg":"*|top_inst|div_top_reg*", "dir":"to",  "freq":chosen_period})
+                # if len(drains_per_state[state]) == 0 and len(sources_per_state[state]) == 0 and len(memory_sources_per_state[state]) == 0 and len(memory_drains_per_state[state]) == 0:
+                #     lines += sdc_template.substitute({"reg":path+module+"_rom*", "dir":"to",  "freq":chosen_period})
+                #     lines += sdc_template.substitute({"reg":"*|top_inst|div_top_reg*", "dir":"to",  "freq":chosen_period})
 
         for source, delays in delay_per_source.items():
             lines += sdc_template.substitute({"reg":source, "dir":"from",  "freq":max([float(d) for d in delays])})
@@ -393,14 +393,18 @@ def get_dynamic_timing(verilog_file, enhanced_synthesis):
 
     save(sdc_file, lines)
 
-def get_timing_constraints(verilog_file):
+def get_timing_constraints(verilog_file, baseline=False):
+    per_module = True
+
     project_folder = os.path.dirname(os.path.abspath(verilog_file))
     project_name = verilog_file.split(".")[0]
     out_dir = project_name+"_files"
     instances_per_module = read_file(os.path.join(out_dir,"instancesPerModule.json"))
     fmax_per_module = dict.fromkeys(instances_per_module)
 
-    result = execute(['quartus_sta', '-t', os.path.join(TOOL_PATH, 'tcl','report_longest.tcl')], cd=project_folder, quiet=True)
+    if not baseline:
+        result = execute(['quartus_sta', '-t', os.path.join(TOOL_PATH, 'tcl','report_longest.tcl')], cd=project_folder, quiet=True)
+    else: result = execute(['quartus_sta', '-t', os.path.join(TOOL_PATH, 'tcl', 'baseline_longest.tcl')], cd=project_folder, quiet=True)
     lines = result.split('\n')
     slack = [l for l in lines if "Slack: "  in l]
     slack = float(slack[0].split()[-1])
@@ -415,31 +419,110 @@ def get_timing_constraints(verilog_file):
             print("\t"+to_node[0])
             print("\t"+" :  "+str(max_frequency)+"  (Slack "+str(slack)+")")
         else: print(result)
-    
+        
     modules = list(instances_per_module.keys())
     def num_submodules(module):
         return len(instances_per_module[module])
     modules.sort(key=num_submodules)
 
-    not_processed = list(instances_per_module.keys())
-    not_processed.remove("top")
-    sdc_lines = []
-    while len(not_processed) > 0:
-        def get_next_module(not_processed, instances_per_module):
-            for module in not_processed:
-                if len(instances_per_module[module]) == 0: # leaf
-                    return module 
-                elif all([bool(m not in not_processed) for m in instances_per_module[module]]): # all instances processed, leaf
-                    return module
-        leaf_module = get_next_module(not_processed, instances_per_module)
-        not_processed.remove(leaf_module)
-        
-        if leaf_module == "main": inst = "main_inst"
-        else: inst = leaf_module
-        path = "*|{}:{}|*".format(leaf_module,inst)
+    for module in modules:
+        if slack > 0:
+            max_frequency = 500.0
+        else:
+            max_frequency = 1000.0/(2-slack)
+        fmax_per_module[module] = max_frequency
 
-        # get timing
-        result = execute(['quartus_sta', '-t', os.path.join(TOOL_PATH, 'tcl', 'report_longest_custom.tcl'), path, path], cd=project_folder, quiet=True)
+    if per_module:
+        not_processed = list(instances_per_module.keys())
+        not_processed.remove("top")
+        sdc_lines = []
+        while len(not_processed) > 0:
+            def get_next_module(not_processed, instances_per_module):
+                for module in not_processed:
+                    if len(instances_per_module[module]) == 0: # leaf
+                        return module 
+                    elif all([bool(m not in not_processed) for m in instances_per_module[module]]): # all instances processed, leaf
+                        return module
+            leaf_module = get_next_module(not_processed, instances_per_module)
+            not_processed.remove(leaf_module)
+            
+            if leaf_module == "main": inst = "main_inst"
+            else: inst = leaf_module
+            path = "*|{}:{}|*".format(leaf_module,inst)
+
+            # get timing
+            if not baseline:
+                result = execute(['quartus_sta', '-t', os.path.join(TOOL_PATH, 'tcl', 'report_longest_custom.tcl'), path, path], cd=project_folder, quiet=True)
+                lines = result.split('\n')
+                slack = [l for l in lines if "Slack: "  in l]
+                slack = float(slack[0].split()[-1])
+                if slack > 0:
+                    frequency = 500.0
+                else:
+                    frequency = 1000.0/(2-slack)
+                if DEBUG:
+                    from_node = [l.strip().split(" ")[-1].strip() for l in lines if "From Node" in l]
+                    to_node = [l.strip().split(" ")[-1].strip() for l in lines if "To Node" in l]
+                    if len(from_node) > 0 and len(to_node) > 0:
+                        print("DEBUG: Path from ")
+                        print("\t"+from_node[0])
+                        print("\t"+" to node ")
+                        print("\t"+to_node[0])
+                        print("\t"+" :  "+str(frequency)+"  (Slack "+str(slack)+")")
+                    else: print(result)
+                max_frequency = frequency 
+
+                result = execute(['quartus_sta', '-t', os.path.join(TOOL_PATH, 'tcl', 'report_longest_custom.tcl'), "*", path[0:-1]+"cur_state*"], cd=project_folder, quiet=True)
+                lines = result.split('\n')
+                slack = [l for l in lines if "Slack: "  in l]
+                slack = float(slack[0].split()[-1])
+                if slack > 0:
+                    frequency = 500.0
+                else:
+                    frequency = 1000.0/(2-slack)
+                if DEBUG:
+                    from_node = [l.strip().split(" ")[-1].strip() for l in lines if "From Node" in l]
+                    to_node = [l.strip().split(" ")[-1].strip() for l in lines if "To Node" in l]
+                    if len(from_node) > 0 and len(to_node) > 0:
+                        print("DEBUG: Path from ")
+                        print("\t"+from_node[0])
+                        print("\t"+" to node ")
+                        print("\t"+to_node[0])
+                        print("\t"+" :  "+str(frequency)+"  (Slack "+str(slack)+")")
+                    else: print(result)
+                if frequency < max_frequency:
+                    max_frequency = frequency 
+            else: 
+                result = execute(['quartus_sta', '-t', os.path.join(TOOL_PATH, 'tcl', 'baseline_longest_custom.tcl'), path, path], cd=project_folder, quiet=True)
+                lines = result.split('\n')
+                slack = [l for l in lines if "Slack: "  in l]
+                slack = float(slack[0].split()[-1])
+                if slack > 0:
+                    max_frequency = 500.0
+                else:
+                    max_frequency = 1000.0/(2-slack)
+                if DEBUG:
+                    from_node = [l.strip().split(" ")[-1].strip() for l in lines if "From Node" in l]
+                    to_node = [l.strip().split(" ")[-1].strip() for l in lines if "To Node" in l]
+                    if len(from_node) > 0 and len(to_node) > 0:
+                        print("DEBUG: Path from ")
+                        print("\t"+from_node[0])
+                        print("\t"+" to node ")
+                        print("\t"+to_node[0])
+                        print("\t"+" :  "+str(max_frequency)+"  (Slack "+str(slack)+")")
+                    else: print(result)
+
+            fmax_per_module[leaf_module] = max_frequency
+
+            max_delay = 1000.0/(PLL_CLOCK/math.ceil(PLL_CLOCK/max_frequency)) # bin frequency for simplicity
+
+            sdc_lines = [sdc_template_dual.substitute({"to":path,  "from":path, "freq":max_delay})] + sdc_lines
+            with open(os.path.join('sdc', 'fmax_delay.sdc'), 'w') as outf:
+                for line in sdc_lines:
+                    outf.write(line)
+
+        if not baseline: result = execute(['quartus_sta', '-t', os.path.join(TOOL_PATH, 'tcl','report_longest.tcl')], cd=project_folder, quiet=True)
+        else: result = execute(['quartus_sta', '-t', os.path.join(TOOL_PATH, 'tcl', 'baseline_longest.tcl')], cd=project_folder, quiet=True)
         lines = result.split('\n')
         slack = [l for l in lines if "Slack: "  in l]
         slack = float(slack[0].split()[-1])
@@ -447,45 +530,18 @@ def get_timing_constraints(verilog_file):
             max_frequency = 500.0
         else:
             max_frequency = 1000.0/(2-slack)
-        fmax_per_module[leaf_module] = max_frequency
         if DEBUG:
             from_node = [l.strip().split(" ")[-1].strip() for l in lines if "From Node" in l]
             to_node = [l.strip().split(" ")[-1].strip() for l in lines if "To Node" in l]
             if len(from_node) > 0 and len(to_node) > 0:
-                print("DEBUG: Path from ")
+                print("DEBUG: Max Frequency Path post-analysis from ")
                 print("\t"+from_node[0])
                 print("\t"+" to node ")
                 print("\t"+to_node[0])
                 print("\t"+" :  "+str(max_frequency)+"  (Slack "+str(slack)+")")
             else: print(result)
 
-        max_delay = 1000.0/(PLL_CLOCK/math.ceil(PLL_CLOCK/max_frequency)) # bin frequency for simplicity
-
-        sdc_lines = [sdc_template_dual.substitute({"to":path,  "from":path, "freq":max_delay})] + sdc_lines
-        with open(os.path.join('sdc', 'fmax_delay.sdc'), 'w') as outf:
-            for line in sdc_lines:
-                outf.write(line)
-
-    result = execute(['quartus_sta', '-t', os.path.join(TOOL_PATH, 'tcl','report_longest.tcl')], cd=project_folder, quiet=True)
-    lines = result.split('\n')
-    slack = [l for l in lines if "Slack: "  in l]
-    slack = float(slack[0].split()[-1])
-    if slack > 0:
-        max_frequency = 500.0
-    else:
-        max_frequency = 1000.0/(2-slack)
-    if DEBUG:
-        from_node = [l.strip().split(" ")[-1].strip() for l in lines if "From Node" in l]
-        to_node = [l.strip().split(" ")[-1].strip() for l in lines if "To Node" in l]
-        if len(from_node) > 0 and len(to_node) > 0:
-            print("DEBUG: Max Frequency Path post-analysis from ")
-            print("\t"+from_node[0])
-            print("\t"+" to node ")
-            print("\t"+to_node[0])
-            print("\t"+" :  "+str(max_frequency)+"  (Slack "+str(slack)+")")
-        else: print(result)
-
-    fmax_per_module["top"] = max_frequency
+        fmax_per_module["top"] = max_frequency
     
     print(fmax_per_module)
 
@@ -715,6 +771,15 @@ def get_simulation_performance(verilog_file, pipeline, log_file=None):
     hwFreqcounter = {}
     time = 1.0/(PLL_CLOCK/((2**COUNTER_BITS)-1))+1.0/(PLL_CLOCK/((2**COUNTER_BITS)-1))
     ideal_time = 0
+    freqs_per_module = dict.fromkeys(statesPerModule.keys())
+    time_per_module = dict.fromkeys(statesPerModule.keys())
+    for m in statesPerModule.keys():
+        time_per_module[m] = 0
+        freqs_per_module[m] = []
+
+    time_per_module["main"] += time 
+    freqs_per_module["main"] = [PLL_CLOCK/((2**COUNTER_BITS)-1),PLL_CLOCK/((2**COUNTER_BITS)-1)]
+
     for cycle in range(transition_count):
         freqs = []
         instance = "main_inst"
@@ -762,7 +827,7 @@ def get_simulation_performance(verilog_file, pipeline, log_file=None):
                 if not (state in subroutine_calls[instance_base].keys() and next_state in subroutine_calls[instance_base].keys()):
                     previous_state = activeStateNames[instance][cycle-1] 
                     current_state_candidates = nextStatesPerState[previous_state]
-                    freqs.append(min([binnedFrequencyPerState[s] for s in current_state_candidates]))
+                    freqs.append(min([float(binnedFrequencyPerState[s]) for s in current_state_candidates]))
                     precise_freqs.append(binnedFrequencyPerState[state])
 
             hwFrequencySchedule.append(min(freqs))
@@ -774,6 +839,7 @@ def get_simulation_performance(verilog_file, pipeline, log_file=None):
         print("PRECISE SIMULATION LATENCY ",precise_time)
         print("PRECISE SIMULATION EFFECTIVE FREQUENCY ",float(len(hwFrequencySchedule))/precise_time)
     else: 
+        print(subroutine_calls)
         for cycle in range(2, transition_count):
             freqs = []
             instance = "main_inst"
@@ -783,6 +849,7 @@ def get_simulation_performance(verilog_file, pipeline, log_file=None):
             instance_base = "main"
             if not(state in subroutine_calls[instance_base].keys() and next_state in subroutine_calls[instance_base].keys()):
                 freqs.append(binnedFrequencyPerState[state])
+
             while state in subroutine_calls[instance_base].keys():
                 instance = instance + '.' + subroutine_calls[instance_base][state]
                 state = activeStateNames[instance][cycle]
@@ -790,21 +857,31 @@ def get_simulation_performance(verilog_file, pipeline, log_file=None):
                 else: next_state = activeStateNames[instance][0]
                 instance_base = instance.split('.')[-1]
                 if not (state in subroutine_calls[instance_base].keys() and next_state in subroutine_calls[instance_base].keys()):
-                    freqs.append(binnedFrequencyPerState[state])
+                    freqs.append(float(binnedFrequencyPerState[state]))
 
             hwFrequencySchedule.append(min(freqs))
+            freqs_per_module[instance_base].append(min(freqs))
             if min(freqs) not in hwFreqcounter.keys(): hwFreqcounter[min(freqs)] = 0
             hwFreqcounter[min(freqs)] += 1
             time += 1.0/(min(freqs))
+            time_per_module[instance_base] += 1.0/(min(freqs))
+
+        print("Per-Module Syncopation Results")
+        for m in statesPerModule.keys():
+            if time_per_module[m] == 0: print("No cycles in module ", m)
+            else: print(m," EFFECTIVE FREQUENCY",float(len(freqs_per_module[m]))/time_per_module[m])
 
     save(os.path.join(out_dir, "correctedFrequencySchedule.csv"), correctedFrequencySchedule)
     save(os.path.join(out_dir, "hwFrequencySchedule.csv"), hwFrequencySchedule)
     save(os.path.join(out_dir, "hwFreqCounter.json"), hwFreqcounter)
     save(os.path.join(out_dir, "hwTime.csv"), [time])
     save(os.path.join(out_dir, "instances.csv"), instances)
+    save(os.path.join(out_dir, "time_per_module.json"), time_per_module)
+    save(os.path.join(out_dir, "freqs_per_module.json"), freqs_per_module)
 
     print("SIMULATION LATENCY ",time)
     print("SIMULATION HYPOTHETICAL FMAX ",float(len(hwFrequencySchedule))/ideal_time)
     print("SIMULATION EFFECTIVE FREQUENCY ",float(len(hwFrequencySchedule))/time)
+
 
 

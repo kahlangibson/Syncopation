@@ -539,6 +539,7 @@ def pull_out_state(pipeline, verilog_file):
     instructions_per_start_sig = read_file(os.path.join(out_dir,"rtl_startsPerInstruction.json"))
     value_per_state = read_file(os.path.join(out_dir,"rtl_functionCallValues.json"))
     instructions_per_state = read_file(os.path.join(out_dir,"hls_instructionsPerState.json"))
+    hls_function_per_state = read_file(os.path.join(out_dir,"hls_functionCallsPerState.json"))
     nstatesPerModule = get_num_nStates(out_dir)
     
     module_formats = {}
@@ -687,24 +688,27 @@ def pull_out_state(pipeline, verilog_file):
                     if start_sig in instructions_per_start_sig.keys():
                         tail_calls = instructions_per_start_sig[start_sig]
                     else: tail_calls = []
-                    states = []
-                    for state in [s for s in instructions_per_state.keys() if module in s]:
-                        instructions = instructions_per_state[state]
-                        for tc in tail_calls:
-                            if tc in instructions:
-                                states.append(state)
+                    function_call_states = []
+
+                    for state in [s for s in value_per_state.keys() if module in s]:
+                        if i in hls_function_per_state[state][0]:
+                            function_call_states.append(state)
+                        
+                    function_call_states = list(dict.fromkeys(function_call_states))
+                    print(function_call_states)
 
                     if module in nstatesPerModule.keys(): instance_count_per_module[module] += 1
-                    if len(states) > 0:
+                    if len(function_call_states) > 0:
                         verilog.insert(select_idx, "end")
                         verilog.insert(select_idx, "endcase")
                         verilog.insert(select_idx, "default: divs[({}+1)*4-1:(".format(instance_count_per_module[module])+"{})*4] = 4'd3;".format(instance_count_per_module[module]))
                         
-                        for state_name in states:
-                            subroutine_calls[module][state] = i
-                        for state_val in [value_per_state[state] for state in states]:
+                        for state_name in function_call_states:
+                            subroutine_calls[module][state_name] = hls_function_per_state[state_name][0]
+                        for state_name in function_call_states:
+                            state_val = value_per_state[state_name]
                             subroutine_states[module].append(state_val)
-                            verilog.insert(select_idx, "{}: divs[(".format(state_val)+"{}+1)*4-1:(".format(instance_count_per_module[module])+"{})*4] = div_{};".format(instance_count_per_module[module], i))
+                            verilog.insert(select_idx, "{}: divs[(".format(state_val)+"{}+1)*4-1:(".format(instance_count_per_module[module])+"{})*4] = div_{};".format(instance_count_per_module[module], hls_function_per_state[state_name][0]))
                         if pipeline:
                             verilog.insert(select_idx, "case (cur_state)")
                         else:
